@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { X, Mail, User as UserIcon } from 'lucide-react';
 import { User } from '../types';
 
@@ -28,12 +29,20 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, cu
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const validateUsername = (username: string) => {
+    return /^[a-zA-Z0-9_]{3,20}$/.test(username);
+  };
+
+  const getApiUrl = () => {
+    return import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.split('/generate')[0] : 'http://localhost:5001/api';
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (username.trim().length < 3) {
-      setError('Username must be at least 3 characters.');
+    if (!validateUsername(username)) {
+      setError('Username must be 3-20 characters long and can only contain letters, numbers, and underscores.');
       return;
     }
 
@@ -42,18 +51,13 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, cu
       return;
     }
 
-    // Email uniqueness check (excluding current user's original email)
-    const users = JSON.parse(localStorage.getItem('app_users') || '[]');
-    const isEmailTaken = users.some((u: any) => u.email === email && u.email !== currentUser.email);
-
-    if (isEmailTaken) {
-      setError('This email address is already taken by another account.');
-      return;
+    try {
+      const res = await axios.put(`${getApiUrl()}/profile`, { currentEmail: currentUser.email, email, username });
+      onUpdate(res.data.user);
+      onClose();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to update profile.');
     }
-
-    // All valid
-    onUpdate({ username, email });
-    onClose();
   };
 
   return (

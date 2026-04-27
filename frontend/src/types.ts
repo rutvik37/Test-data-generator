@@ -19,4 +19,4 @@ export interface User {
   username: string;
 }
 
-export type AuthMode = 'signin' | 'signup';
+export type AuthMode = 'signin' | 'signup' | 'verify-otp';

@@ -13,16 +13,16 @@ The heart of the application is a dynamic data generator that helps developers c
 - **Multi-Format Export**: Download your data as **JSON** or **CSV** for immediate use in your projects.
 
 ## 🔐 2. Custom Authentication System
-A complete client-side authentication flow that ensures persistence without complex database overhead.
-- **Sign In & Sign Up**: Secure flows for user registration and login.
-- **Field Validation**: Robust checks for valid email formats and password matching.
-- **Username Integration**: Personalized accounts with custom usernames.
-- **Persistent Sessions**: Your login status is remembered across page refreshes using `localStorage`.
+A secure, full-stack authentication flow managed by a custom Node.js backend.
+- **Sign Up with OTP**: Secure registration flow requiring a 6-digit OTP verification sent to the user's email.
+- **Login Flexibility**: Users can securely sign in using either their **Email or Username**.
+- **Data Validation & Constraints**: Strict backend enforcement of case-insensitive uniqueness for both emails and usernames.
+- **Security Best Practices**: Passwords are cryptographically hashed using SHA-256 before storage.
 
 ## 👤 3. Profile & Account Management
 Users have full control over their identity within the platform.
 - **Edit Profile**: Update your username or email address at any time.
-- **Email Uniqueness**: The system automatically prevents duplicate email registrations across all accounts.
+- **Global Uniqueness**: The system automatically prevents duplicate email or username registrations across all accounts (case-insensitive).
 - **Dynamic Avatars**: Beautiful, color-coded profile images generated automatically based on your username.
 
 ## 🎨 4. Premium UI/UX Experience
@@ -35,16 +35,16 @@ A modern, responsive interface designed to feel fast and fluid.
 ## 📧 5. Automated Email Notifications
 Real-world communication integrated directly into the workflow.
 - **Nodemailer Integration**: A production-ready backend setup using SMTP (Gmail) to send real emails.
-- **Welcome Emails**: Every new user automatically receives a professionally formatted **HTML welcome email** upon successful registration.
+- **OTP Verification**: Users receive dynamic, HTML-formatted verification codes containing their registered username and email to verify their accounts.
 - **Secure Configuration**: Backend verification ensures the email service is ready before any attempts are made.
 
 ---
 
 ## 🏗️ Technical Architecture
 - **Frontend**: React 18, TypeScript, TailwindCSS (Styling), Lucide-React (Icons).
-- **Backend**: Node.js, Express, TypeScript (Faker.js for data, Nodemailer for emails).
-- **Storage**: `localStorage` (Client-side persistence).
-- **Tooling**: Vite (Fast HMR), Axios (API Communication).
+- **Backend**: Node.js, Express, TypeScript, custom SHA-256 cryptography.
+- **Storage**: JSON File-based Data Store (`users.json`) on the backend.
+- **Tooling**: Vite (Fast HMR), Axios (API Communication), Nodemailer (Emails), Faker.js (Mock Data).
 
 ---
 *Created with ❤️ by Antigravity for the Test data generator Team.*

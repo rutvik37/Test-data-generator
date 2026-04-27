@@ -1,0 +1,51 @@
+[
+  {
+    "id": "53553b95-2681-45fb-8822-3ee32f2062e4",
+    "email": "don@yopmail.com",
+    "username": "don",
+    "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
+    "createdAt": "2026-04-24T09:56:17.086Z"
+  },
+  {
+    "id": "a61ca289-73fd-44c3-8f3b-a62effde2328",
+    "email": "state@yopmail.com",
+    "username": "state",
+    "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
+    "createdAt": "2026-04-27T10:23:36.563Z"
+  },
+  {
+    "id": "f700ee7d-23fc-4d68-96fe-f4cf0c3348d3",
+    "email": "r@yopmail.com",
+    "username": "vaniyo",
+    "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
+    "createdAt": "2026-04-27T10:26:42.535Z"
+  },
+  {
+    "id": "b7ff7675-f93e-468b-87cf-00e283dd6207",
+    "email": "bb@yopmail.com",
+    "username": "aaa",
+    "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
+    "createdAt": "2026-04-27T10:34:35.873Z"
+  },
+  {
+    "id": "0aa354c9-9d89-41b6-8ecc-472133e67de2",
+    "email": "one@yopmail.com",
+    "username": "111",
+    "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
+    "createdAt": "2026-04-27T12:03:42.671Z"
+  },
+  {
+    "id": "ddb9fdfc-76c0-4231-9a1d-a0c2a00f42d8",
+    "email": "two@yopmail.com",
+    "username": "222",
+    "passwordHash": "f1eb6bccf722f2988223f74ed689c9d1563b263bd054432dc6a1c0f57affc9d1",
+    "createdAt": "2026-04-27T12:09:42.556Z"
+  },
+  {
+    "id": "e0b31bff-001a-4788-a019-f78725be61e9",
+    "email": "three@yopmail.com",
+    "username": "333",
+    "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
+    "createdAt": "2026-04-27T12:14:28.791Z"
+  }
+]

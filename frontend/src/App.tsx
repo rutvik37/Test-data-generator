@@ -303,16 +303,6 @@ function App() {
           onClose={() => setIsEditProfileOpen(false)}
           currentUser={currentUser}
           onUpdate={(updatedUser) => {
-            // Update the master list of users in localStorage
-            const users = JSON.parse(localStorage.getItem('app_users') || '[]');
-            const userIndex = users.findIndex((u: any) => u.email === currentUser.email);
-            
-            if (userIndex !== -1) {
-              users[userIndex] = { ...users[userIndex], ...updatedUser };
-              localStorage.setItem('app_users', JSON.stringify(users));
-            }
-
-            // Update session user
             setCurrentUser(updatedUser);
             setToast({ message: 'Profile updated successfully!', type: 'success' });
           }}
