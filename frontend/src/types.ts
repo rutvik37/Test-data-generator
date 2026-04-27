@@ -20,3 +20,17 @@ export interface User {
 }
 
 export type AuthMode = 'signin' | 'signup' | 'verify-otp';
+
+export interface TestCase {
+  id: string;
+  field: string;
+  title: string;
+  steps?: string;
+  expectedResult?: string;
+}
+
+export interface TestCaseResult {
+  positive: TestCase[];
+  negative: TestCase[];
+  edge: TestCase[];
+}

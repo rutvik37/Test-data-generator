@@ -11,9 +11,11 @@ import AuthModal from './components/AuthModal';
 import Toast, { ToastType } from './components/Toast';
 import ConfirmModal from './components/ConfirmModal';
 import EditProfileModal from './components/EditProfileModal';
+import TestCaseViewer from './components/TestCaseViewer';
+import { generateTestCases } from './utils/testCaseGenerator';
 
 import useLocalStorage from './hooks/useLocalStorage';
-import { SchemaField, GeneratedRecord, User, AuthMode } from './types';
+import { SchemaField, GeneratedRecord, User, AuthMode, TestCaseResult } from './types';
 
 function App() {
   const [schema, setSchema] = useLocalStorage<SchemaField[]>('ai-test-data-schema', [
@@ -27,6 +29,12 @@ function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useLocalStorage<boolean>('ai-test-data-dark', false);
+
+  // Test Cases State
+  const [viewMode, setViewMode] = useState<'data' | 'test-cases'>('data');
+  const [testCases, setTestCases] = useState<TestCaseResult | null>(null);
+  const [includeSteps, setIncludeSteps] = useState(true);
+  const [includeExpectedResult, setIncludeExpectedResult] = useState(true);
 
   // Auth state
   const [currentUser, setCurrentUser] = useLocalStorage<User | null>('ai-test-data-user', null);
@@ -76,6 +84,20 @@ function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGenerateTestCases = () => {
+    const validSchema = schema.filter((f) => f.name.trim() !== '');
+    if (validSchema.length === 0) {
+      setError('Please add at least one valid field with a name to generate test cases.');
+      return;
+    }
+    
+    setError(null);
+    const result = generateTestCases(validSchema, { includeSteps, includeExpectedResult });
+    setTestCases(result);
+    setViewMode('test-cases');
+    setToast({ message: 'Test cases generated successfully!', type: 'success' });
   };
 
   return (
@@ -239,11 +261,33 @@ function App() {
               >
                 {loading ? <Loader2 className="animate-spin" size={20} /> : (data ? 'Regenerate Data' : 'Generate Data')}
               </button>
+
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4 mb-4">
+                <div className="flex gap-4 mb-3">
+                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                    <input type="checkbox" checked={includeSteps} onChange={e => setIncludeSteps(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600" />
+                    Include Steps
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                    <input type="checkbox" checked={includeExpectedResult} onChange={e => setIncludeExpectedResult(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600" />
+                    Expected Result
+                  </label>
+                </div>
+                <button
+                  onClick={handleGenerateTestCases}
+                  disabled={loading}
+                  className="w-full flex justify-center items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 dark:disabled:bg-emerald-800 text-white py-2 px-4 rounded shadow transition-colors font-medium"
+                >
+                  Generate Test Cases
+                </button>
+              </div>
+
               <button
                 disabled={loading}
                 onClick={() => {
                   setSchema([{ name: '', type: 'String' }]);
                   setData(null);
+                  setTestCases(null);
                   setCount(10);
                   setError(null);
                   setToast({ message: 'All settings have been reset.', type: 'success' });
@@ -256,16 +300,36 @@ function App() {
           </div>
 
           <div className="lg:col-span-7">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 min-h-[500px]">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Preview</h2>
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  {data ? `${data.length} records generated` : 'No records yet'}
-                </div>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 min-h-[500px] flex flex-col">
+              <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4">
+                <button
+                  onClick={() => setViewMode('data')}
+                  className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${viewMode === 'data' ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+                >
+                  Data Preview
+                </button>
+                <button
+                  onClick={() => setViewMode('test-cases')}
+                  className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${viewMode === 'test-cases' ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'}`}
+                >
+                  Test Cases
+                </button>
               </div>
 
-              <ExportButtons data={data} onReset={() => setData(null)} />
-              <DataPreview data={data} />
+              {viewMode === 'data' ? (
+                <>
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Data Preview</h2>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      {data ? `${data.length} records generated` : 'No records yet'}
+                    </div>
+                  </div>
+                  <ExportButtons data={data} onReset={() => setData(null)} />
+                  <DataPreview data={data} />
+                </>
+              ) : (
+                <TestCaseViewer testCases={testCases} onReset={() => setTestCases(null)} />
+              )}
             </div>
           </div>
         </div>
