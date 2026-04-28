@@ -17,6 +17,8 @@ export type SetSchema = (value: SchemaField[] | ((val: SchemaField[]) => SchemaF
 export interface User {
   email: string;
   username: string;
+  profileImage?: string;
+  status?: 'active' | 'deactivated' | 'deleted_by_admin' | 'deleted_by_user';
 }
 
 export type AuthMode = 'signin' | 'signup' | 'verify-otp';

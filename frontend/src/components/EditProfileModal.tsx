@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { X, Mail, User as UserIcon } from 'lucide-react';
+import { X, Mail, User as UserIcon, Camera, Trash2 } from 'lucide-react';
 import { User } from '../types';
+import ConfirmModal from './ConfirmModal';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -13,12 +14,16 @@ interface EditProfileModalProps {
 const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, currentUser, onUpdate }) => {
   const [username, setUsername] = useState(currentUser.username);
   const [email, setEmail] = useState(currentUser.email);
+  const [profileImage, setProfileImage] = useState<string | undefined>(currentUser.profileImage);
   const [error, setError] = useState<string | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
       setUsername(currentUser.username);
       setEmail(currentUser.email);
+      setProfileImage(currentUser.profileImage);
       setError(null);
     }
   }, [isOpen, currentUser]);
@@ -52,11 +57,21 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, cu
     }
 
     try {
-      const res = await axios.put(`${getApiUrl()}/profile`, { currentEmail: currentUser.email, email, username });
+      const res = await axios.put(`${getApiUrl()}/profile`, { currentEmail: currentUser.email, email, username, profileImage });
       onUpdate(res.data.user);
       onClose();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to update profile.');
+    }
+  };
+
+  const handleDeleteProfile = async () => {
+    try {
+      await axios.delete(`${getApiUrl()}/profile`, { data: { currentEmail: currentUser.email } });
+      localStorage.removeItem('ai-test-data-user');
+      window.location.reload();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to delete profile.');
     }
   };
 
@@ -75,6 +90,38 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, cu
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="flex flex-col items-center mb-6">
+              <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                {profileImage ? (
+                  <img src={profileImage} alt="Profile" className="w-24 h-24 rounded-full object-cover border-4 border-indigo-100 dark:border-indigo-900 shadow-md" />
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-3xl border-4 border-indigo-50 shadow-md">
+                    {username.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera className="text-white h-8 w-8" />
+                </div>
+              </div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      setProfileImage(reader.result as string);
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+              />
+              <p className="text-xs text-gray-500 mt-2">Click to change profile picture</p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Username
@@ -121,9 +168,31 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onClose, cu
             >
               Update Profile
             </button>
+
+            <div className="pt-6 mt-6 border-t border-gray-200 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={() => setIsDeleteConfirmOpen(true)}
+                className="w-full flex items-center justify-center gap-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium py-3 rounded-xl transition-all"
+              >
+                <Trash2 size={18} />
+                Delete Account
+              </button>
+            </div>
           </form>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={isDeleteConfirmOpen}
+        title="Delete Account"
+        message="Are you absolutely sure you want to delete your account? This action cannot be undone and you will be logged out."
+        confirmText="Yes, delete"
+        cancelText="Cancel"
+        onConfirm={handleDeleteProfile}
+        onCancel={() => setIsDeleteConfirmOpen(false)}
+        isDestructive={true}
+      />
     </div>
   );
 };

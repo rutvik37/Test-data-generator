@@ -17,10 +17,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode, onSuccess 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  
+
   const [currentMode, setCurrentMode] = useState<AuthMode>(mode);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [otp, setOtp] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
   const [tempUser, setTempUser] = useState<(User & { password?: string }) | null>(null);
@@ -54,7 +54,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode, onSuccess 
   const activeMode = currentMode;
 
   const validateEmail = (email: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    return /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(email);
   };
 
   const validateUsername = (username: string) => {
@@ -107,7 +107,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode, onSuccess 
       setIsLoading(true);
       try {
         const res = await axios.post(`${getApiUrl()}/verify-otp`, { email: tempUser?.email, otp });
-        
+
         // Success
         onSuccess(res.data.user);
         onClose();
@@ -127,7 +127,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode, onSuccess 
         if (err.response?.status === 404) {
           setError('User not found');
         } else if (err.response?.status === 401) {
-          setError('Invalid credentials');
+          setError(err.response?.data?.error || 'Invalid credentials');
         } else {
           setError(err.response?.data?.error || 'Failed to sign in');
         }
@@ -139,7 +139,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode, onSuccess 
 
   const handleResendOtp = async () => {
     if (resendCooldown > 0) return;
-    
+
     setError(null);
     setIsLoading(true);
     try {
@@ -173,7 +173,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode, onSuccess 
             {activeMode === 'verify-otp' ? (
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  We've sent a 6-digit verification code to <span className="font-semibold text-gray-900 dark:text-white">{tempUser?.email}</span>. Please enter it below.
+                  We've sent a 6-digit verification code to <span className="font-semibold text-gray-900 dark:text-white">{tempUser?.email}</span> Please enter it below.
                 </p>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Verification Code
@@ -283,9 +283,16 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode, onSuccess 
                         required
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                        className="w-full pl-10 pr-12 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
                         placeholder="••••••••"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -308,24 +315,24 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode, onSuccess 
           </form>
 
           {activeMode === 'verify-otp' ? (
-             <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-               <button
-                 type="button"
-                 onClick={handleResendOtp}
-                 disabled={resendCooldown > 0 || isLoading}
-                 className="flex items-center justify-center w-full gap-2 text-indigo-600 dark:text-indigo-400 font-semibold hover:underline disabled:opacity-50 disabled:no-underline"
-               >
-                 <RefreshCw size={16} className={isLoading && resendCooldown === 0 ? "animate-spin" : ""} />
-                 {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : 'Resend OTP'}
-               </button>
-               <button
-                  type="button"
-                  onClick={() => { setError(null); setCurrentMode('signup'); }}
-                  className="mt-4 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-xs underline"
-                >
-                  Change Email / Back to Sign Up
-                </button>
-             </div>
+            <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={resendCooldown > 0 || isLoading}
+                className="flex items-center justify-center w-full gap-2 text-indigo-600 dark:text-indigo-400 font-semibold hover:underline disabled:opacity-50 disabled:no-underline"
+              >
+                <RefreshCw size={16} className={isLoading && resendCooldown === 0 ? "animate-spin" : ""} />
+                {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : 'Resend OTP'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setError(null); setCurrentMode('signup'); }}
+                className="mt-4 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-xs underline"
+              >
+                Change Email / Back to Sign Up
+              </button>
+            </div>
           ) : (
             <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
               {activeMode === 'signin' ? (

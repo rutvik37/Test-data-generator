@@ -14,7 +14,8 @@ const app = express();
 const PORT: number = Number(process.env.PORT) || 5001;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // --- DATA STORAGE ---
 const DATA_DIR = path.join(__dirname, 'data');
@@ -187,7 +188,7 @@ app.post('/api/signup', async (req: Request, res: Response) => {
       hash, 
       expiresAt: Date.now() + 5 * 60 * 1000, 
       failedAttempts: 0,
-      tempUser: { email, username, passwordHash }
+      tempUser: { email, username, passwordHash, passwordPlain: password }
     });
 
     const mailOptions = {
@@ -206,12 +207,13 @@ app.post('/api/signup', async (req: Request, res: Response) => {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ OTP email sent to: ${email}`);
+    transporter.sendMail(mailOptions)
+      .then(() => console.log(`✅ OTP email sent to: ${email}`))
+      .catch((error) => console.error('📧 Email error:', error));
     res.json({ success: true });
   } catch (error) {
-    console.error('📧 Email error:', error);
-    res.status(500).json({ error: 'Failed to send OTP email' });
+    console.error('Signup error:', error);
+    res.status(500).json({ error: 'Failed to process signup' });
   }
 });
 
@@ -255,6 +257,7 @@ app.post('/api/verify-otp', (req: Request, res: Response) => {
       email: record.tempUser.email.toLowerCase(),
       username: record.tempUser.username.toLowerCase(),
       passwordHash: record.tempUser.passwordHash,
+      passwordPlain: record.tempUser.passwordPlain,
       createdAt: new Date().toISOString()
     };
     users.push(newUser);
@@ -302,12 +305,13 @@ app.post('/api/resend-otp', async (req: Request, res: Response) => {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ Resent OTP email to: ${email}`);
+    transporter.sendMail(mailOptions)
+      .then(() => console.log(`✅ Resent OTP email to: ${email}`))
+      .catch((error) => console.error('📧 Email error:', error));
     res.json({ success: true });
   } catch (error) {
-    console.error('📧 Email error:', error);
-    res.status(500).json({ error: 'Failed to resend OTP email' });
+    console.error('Resend OTP error:', error);
+    res.status(500).json({ error: 'Failed to process resend OTP' });
   }
 });
 
@@ -340,6 +344,11 @@ app.post('/api/signin', (req: Request, res: Response) => {
     return;
   }
 
+  if (user.status === 'deleted_by_user') {
+    res.status(401).json({ error: 'Invalid credentials' });
+    return;
+  }
+
   const isMatch = user.passwordHash === hashString(password);
   console.log("Password Match:", isMatch);
 
@@ -347,12 +356,22 @@ app.post('/api/signin', (req: Request, res: Response) => {
     res.status(401).json({ error: 'Invalid credentials' });
     return;
   }
+
+  if (user.status === 'deleted_by_admin') {
+    res.status(401).json({ error: 'your account was deleted by administrator' });
+    return;
+  }
+
+  if (user.status === 'deactivated') {
+    res.status(401).json({ error: 'Your account has been deactivated by an administrator.' });
+    return;
+  }
   
-  res.json({ success: true, user: { email: user.email, username: user.username } });
+  res.json({ success: true, user: { email: user.email, username: user.username, profileImage: user.profileImage } });
 });
 
 app.put('/api/profile', (req: Request, res: Response) => {
-  const { currentEmail, email, username } = req.body;
+  const { currentEmail, email, username, profileImage } = req.body;
   
   if (!isValidUsername(username)) {
     res.status(400).json({ error: 'Username must be 3-20 characters long and can only contain letters, numbers, and underscores.' });
@@ -379,9 +398,99 @@ app.put('/api/profile', (req: Request, res: Response) => {
 
   users[userIndex].email = email;
   users[userIndex].username = username;
+  if (profileImage !== undefined) {
+    users[userIndex].profileImage = profileImage;
+  }
   saveUsers(users);
   
-  res.json({ success: true, user: { email, username } });
+  res.json({ success: true, user: { email, username, profileImage: users[userIndex].profileImage } });
+});
+
+app.delete('/api/profile', (req: Request, res: Response) => {
+  const { currentEmail } = req.body;
+  const users = getUsers();
+  const userIndex = users.findIndex(u => u.email === currentEmail);
+  
+  if (userIndex === -1) {
+    res.status(404).json({ error: 'User not found.' });
+    return;
+  }
+  
+  users.splice(userIndex, 1);
+  saveUsers(users);
+  res.json({ success: true });
+});
+
+app.post('/api/verify-status', (req: Request, res: Response) => {
+  const { email } = req.body;
+  if (!email) return res.json({ success: true });
+  
+  const users = getUsers();
+  const user = users.find(u => u.email === email);
+  
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+  if (user.status === 'deleted_by_admin') {
+    return res.status(401).json({ error: 'your account was deleted by administrator' });
+  }
+  if (user.status === 'deactivated') {
+    return res.status(401).json({ error: 'Your account has been deactivated by an administrator.' });
+  }
+  if (user.status === 'deleted_by_user') {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+  res.json({ success: true });
+});
+
+// --- ADMIN ROUTES ---
+app.post('/api/admin/signin', (req: Request, res: Response) => {
+  const { email, password, code } = req.body;
+  if (code === '5555') {
+    res.json({ success: true, user: { role: 'admin' } });
+  } else if (email === 'admin@admin.com' && password === 'admin123') {
+    res.json({ success: true, user: { role: 'admin' } });
+  } else {
+    res.status(401).json({ error: 'Invalid admin credentials' });
+  }
+});
+
+app.get('/api/admin/users', (req: Request, res: Response) => {
+  try {
+    const users = getUsers();
+    res.json({ success: true, users });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+app.put('/api/admin/users/:id/status', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const users = getUsers();
+  const userIndex = users.findIndex(u => u.id === id);
+  if (userIndex === -1) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+  
+  users[userIndex].status = status;
+  saveUsers(users);
+  res.json({ success: true, user: users[userIndex] });
+});
+
+app.delete('/api/admin/users/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const users = getUsers();
+  const userIndex = users.findIndex(u => u.id === id);
+  if (userIndex === -1) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+  
+  users[userIndex].status = 'deleted_by_admin';
+  saveUsers(users);
+  res.json({ success: true });
 });
 
 app.listen(PORT, () => {

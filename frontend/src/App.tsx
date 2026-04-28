@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import axios, { AxiosError } from 'axios';
-import { Database, Loader2, LogOut, User as UserIcon, RotateCcw } from 'lucide-react';
+import { Database, Loader2, LogOut, RotateCcw } from 'lucide-react';
 
 // Component imports
 import SchemaBuilder from './components/SchemaBuilder';
@@ -14,10 +15,16 @@ import EditProfileModal from './components/EditProfileModal';
 import TestCaseViewer from './components/TestCaseViewer';
 import { generateTestCases } from './utils/testCaseGenerator';
 
+import AdminLogin from './components/admin/AdminLogin';
+import AdminLayout from './components/admin/AdminLayout';
+import CustomersList from './components/admin/CustomersList';
+
+// Force IDE refresh
+
 import useLocalStorage from './hooks/useLocalStorage';
 import { SchemaField, GeneratedRecord, User, AuthMode, TestCaseResult } from './types';
 
-function App() {
+function MainApp() {
   const [schema, setSchema] = useLocalStorage<SchemaField[]>('ai-test-data-schema', [
     { name: 'id', type: 'UUID' },
     { name: 'name', type: 'Full Name' },
@@ -53,6 +60,27 @@ function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    const verifyStatus = async () => {
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.split('/generate')[0] : 'http://localhost:5001/api';
+        await axios.post(`${apiUrl}/verify-status`, { email: currentUser.email });
+      } catch (err: any) {
+        if (err.response?.status === 401 || err.response?.status === 404) {
+          setCurrentUser(null);
+          setDarkMode(false);
+          setToast({ message: err.response?.data?.error || 'Account no longer available', type: 'error' });
+        }
+      }
+    };
+    
+    verifyStatus();
+    const interval = setInterval(verifyStatus, 10000);
+    return () => clearInterval(interval);
+  }, [currentUser, setCurrentUser]);
 
   const handleGenerate = async (): Promise<void> => {
     const validSchema = schema.filter((f) => f.name.trim() !== '');
@@ -92,7 +120,7 @@ function App() {
       setError('Please add at least one valid field with a name to generate test cases.');
       return;
     }
-    
+
     setError(null);
     const result = generateTestCases(validSchema, { includeSteps, includeExpectedResult });
     setTestCases(result);
@@ -147,9 +175,9 @@ function App() {
                       title="Edit Profile"
                     >
                       <img
-                        src={`https://ui-avatars.com/api/?name=${currentUser.username}&background=6366f1&color=fff&bold=true`}
+                        src={currentUser.profileImage || `https://ui-avatars.com/api/?name=${currentUser.username}&background=6366f1&color=fff&bold=true`}
                         alt={currentUser.username}
-                        className="w-8 h-8 rounded-full border border-indigo-200 dark:border-indigo-800 shadow-sm group-hover:ring-2 group-hover:ring-indigo-500 transition-all"
+                        className="w-8 h-8 rounded-full object-cover border border-indigo-200 dark:border-indigo-800 shadow-sm group-hover:ring-2 group-hover:ring-indigo-500 transition-all"
                       />
                       <div className="absolute inset-0 bg-black/20 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                         <span className="sr-only">Edit</span>
@@ -384,4 +412,14 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<MainApp />} />
+        <Route path="/admin" element={<AdminLogin />} />
+        <Route path="/admin/dashboard" element={<AdminLayout><CustomersList /></AdminLayout>} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
