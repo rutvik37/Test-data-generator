@@ -340,7 +340,7 @@ app.post('/api/signin', (req: Request, res: Response) => {
   console.log("User from DB:", user);
 
   if (!user) {
-    res.status(404).json({ error: 'User not found' });
+    res.status(401).json({ error: 'Invalid credentials' });
     return;
   }
 

@@ -47,4 +47,4 @@ Real-world communication integrated directly into the workflow.
 - **Tooling**: Vite (Fast HMR), Axios (API Communication), Nodemailer (Emails), Faker.js (Mock Data).
 
 ---
-*Created with ❤️ by Antigravity for the Test data generator Team.*
+*Created with ❤️ by Rutvik jasani for the Test data generator Team.*

@@ -124,9 +124,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, mode, onSuccess 
         onSuccess(res.data.user);
         onClose();
       } catch (err: any) {
-        if (err.response?.status === 404) {
-          setError('User not found');
-        } else if (err.response?.status === 401) {
+        if (err.response?.status === 401) {
           setError(err.response?.data?.error || 'Invalid credentials');
         } else {
           setError(err.response?.data?.error || 'Failed to sign in');
