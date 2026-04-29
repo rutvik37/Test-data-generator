@@ -28,8 +28,8 @@ export default function CustomersList() {
 
   const fetchCustomers = async () => {
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/admin/users';
-      const response = await axios.get(apiUrl);
+      const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.split('/generate')[0] : 'http://localhost:5001/api';
+      const response = await axios.get(`${baseUrl}/admin/users`);
       if (response.data.success) {
         const activeUsers = response.data.users.filter((u: Customer) => u.status !== 'deleted_by_admin' && u.status !== 'deleted_by_user');
         const sortedUsers = activeUsers.sort((a: Customer, b: Customer) => {
@@ -48,8 +48,8 @@ export default function CustomersList() {
     if (!customerToToggle) return;
     try {
       const newStatus = customerToToggle.status === 'deactivated' ? 'active' : 'deactivated';
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/admin/users';
-      const res = await axios.put(`${apiUrl}/${customerToToggle.id}/status`, { status: newStatus });
+      const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.split('/generate')[0] : 'http://localhost:5001/api';
+      const res = await axios.put(`${baseUrl}/admin/users/${customerToToggle.id}/status`, { status: newStatus });
       if (res.data.success) {
         setToast({ message: `User ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`, type: 'success' });
         setCustomerToToggle(null);
@@ -63,8 +63,8 @@ export default function CustomersList() {
   const handleDelete = async () => {
     if (!customerToDelete) return;
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/admin/users';
-      const res = await axios.delete(`${apiUrl}/${customerToDelete.id}`);
+      const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.split('/generate')[0] : 'http://localhost:5001/api';
+      const res = await axios.delete(`${baseUrl}/admin/users/${customerToDelete.id}`);
       if (res.data.success) {
         setToast({ message: 'User deleted successfully', type: 'success' });
         setCustomerToDelete(null);

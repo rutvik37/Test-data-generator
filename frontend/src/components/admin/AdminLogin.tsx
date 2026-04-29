@@ -22,7 +22,8 @@ export default function AdminLogin() {
     e.preventDefault();
     setLoading(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/admin/signin';
+      const baseUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.split('/generate')[0] : 'http://localhost:5001/api';
+      const apiUrl = `${baseUrl}/admin/signin`;
       const payload = loginMethod === 'code' ? { code } : { email, password };
       const response = await axios.post(apiUrl, payload);
       
