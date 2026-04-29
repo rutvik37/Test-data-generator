@@ -3,12 +3,10 @@ import cors from 'cors';
 import { faker } from '@faker-js/faker';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+dotenv.config();
 
 const app = express();
 const PORT: number = Number(process.env.PORT) || 5001;
@@ -17,28 +15,32 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// --- DATA STORAGE ---
-const DATA_DIR = path.join(__dirname, 'data');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
+// --- MONGODB CONNECTION ---
+const MONGODB_URI = process.env.MONGODB_URI || '';
 
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+if (!MONGODB_URI) {
+  console.error('❌ MONGODB_URI is not set. Please add it to your .env file or environment variables.');
 }
 
-function getUsers(): any[] {
-  if (!fs.existsSync(USERS_FILE)) return [];
-  try {
-    const data = fs.readFileSync(USERS_FILE, 'utf-8');
-    return JSON.parse(data);
-  } catch (e) {
-    return [];
-  }
-}
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('✅ MongoDB Connected Successfully'))
+  .catch((err) => console.error('❌ MongoDB Connection Error:', err));
 
-function saveUsers(users: any[]) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-}
+// --- USER SCHEMA & MODEL ---
+const userSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true },
+  username: { type: String, required: true, unique: true },
+  passwordHash: { type: String, required: true },
+  passwordPlain: { type: String },
+  createdAt: { type: String, default: () => new Date().toISOString() },
+  profileImage: { type: String, default: '' },
+  status: { type: String, default: 'active' },
+});
 
+const User = mongoose.model('User', userSchema);
+
+// --- INTERFACES ---
 interface SchemaField {
   name: string;
   type: string;
@@ -109,13 +111,13 @@ app.post('/api/generate', (req: Request<{}, {}, GenerateRequestBody>, res: Respo
 });
 
 // --- EMAIL CONFIGURATION ---
-const EMAIL_USER = 'rutvikhyper@gmail.com'; // Change this
-const EMAIL_PASS = 'qdtvmturgxnfvsdu';    // Change this
+const EMAIL_USER = 'rutvikhyper@gmail.com';
+const EMAIL_PASS = 'qdtvmturgxnfvsdu';
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 587,
-  secure: false, // true for 465, false for other ports
+  secure: false,
   auth: {
     user: EMAIL_USER,
     pass: EMAIL_PASS,
@@ -150,22 +152,24 @@ function isValidUsername(username: string): boolean {
   return /^[a-zA-Z0-9_]{3,20}$/.test(username);
 }
 
+// --- AUTH ROUTES ---
 app.post('/api/signup', async (req: Request, res: Response) => {
   try {
     const { email, username, password } = req.body;
-    
+
     if (!isValidUsername(username)) {
       res.status(400).json({ error: 'Username must be 3-20 characters long and can only contain letters, numbers, and underscores.' });
       return;
     }
 
-    const users = getUsers();
-    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+    const existingEmail = await User.findOne({ email: email.toLowerCase() });
+    if (existingEmail) {
       res.status(400).json({ error: 'User already exists with this email.' });
       return;
     }
 
-    if (users.find(u => u.username.toLowerCase() === username.toLowerCase())) {
+    const existingUsername = await User.findOne({ username: username.toLowerCase() });
+    if (existingUsername) {
       res.status(400).json({ error: 'Username already taken.' });
       return;
     }
@@ -183,10 +187,10 @@ app.post('/api/signup', async (req: Request, res: Response) => {
     const otp = generateOTP();
     const hash = hashString(otp);
     const passwordHash = hashString(password);
-    
-    otpStore.set(email, { 
-      hash, 
-      expiresAt: Date.now() + 5 * 60 * 1000, 
+
+    otpStore.set(email, {
+      hash,
+      expiresAt: Date.now() + 5 * 60 * 1000,
       failedAttempts: 0,
       tempUser: { email, username, passwordHash, passwordPlain: password }
     });
@@ -217,7 +221,7 @@ app.post('/api/signup', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/verify-otp', (req: Request, res: Response) => {
+app.post('/api/verify-otp', async (req: Request, res: Response) => {
   const { email, otp } = req.body;
 
   if (blockStore.has(email) && Date.now() < blockStore.get(email)!) {
@@ -249,20 +253,18 @@ app.post('/api/verify-otp', (req: Request, res: Response) => {
     return;
   }
 
-  // Success
+  // Success — save user to MongoDB
   if (record.tempUser) {
-    const users = getUsers();
-    const newUser = {
+    const newUser = new User({
       id: crypto.randomUUID(),
       email: record.tempUser.email.toLowerCase(),
       username: record.tempUser.username.toLowerCase(),
       passwordHash: record.tempUser.passwordHash,
       passwordPlain: record.tempUser.passwordPlain,
-      createdAt: new Date().toISOString()
-    };
-    users.push(newUser);
-    saveUsers(users);
-    console.log("Saved User:", newUser);
+      createdAt: new Date().toISOString(),
+    });
+    await newUser.save();
+    console.log('✅ Saved User to MongoDB:', newUser.email);
   }
 
   otpStore.delete(email);
@@ -272,7 +274,7 @@ app.post('/api/verify-otp', (req: Request, res: Response) => {
 app.post('/api/resend-otp', async (req: Request, res: Response) => {
   try {
     const { email, username } = req.body;
-    
+
     if (blockStore.has(email) && Date.now() < blockStore.get(email)!) {
       res.status(429).json({ error: 'Too many failed attempts. Try again later.' });
       return;
@@ -283,12 +285,12 @@ app.post('/api/resend-otp', async (req: Request, res: Response) => {
 
     const otp = generateOTP();
     const hash = hashString(otp);
-    
-    otpStore.set(email, { 
-      hash, 
-      expiresAt: Date.now() + 5 * 60 * 1000, 
+
+    otpStore.set(email, {
+      hash,
+      expiresAt: Date.now() + 5 * 60 * 1000,
       failedAttempts: 0,
-      tempUser 
+      tempUser
     });
 
     const mailOptions = {
@@ -315,29 +317,22 @@ app.post('/api/resend-otp', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/signin', (req: Request, res: Response) => {
+app.post('/api/signin', async (req: Request, res: Response) => {
   const { identifier, password } = req.body;
-  
-  console.log("Identifier:", identifier);
-  console.log("Password Input:", password);
+
+  console.log('Identifier:', identifier);
 
   if (!identifier || !password) {
     res.status(400).json({ error: 'Identifier and password are required' });
     return;
   }
 
-  const users = getUsers();
-  
   const isEmail = identifier.includes('@');
-  const user = users.find(u => {
-    if (isEmail) {
-      return u.email.toLowerCase() === identifier.toLowerCase();
-    } else {
-      return u.username.toLowerCase() === identifier.toLowerCase();
-    }
-  });
+  const query = isEmail
+    ? { email: identifier.toLowerCase() }
+    : { username: identifier.toLowerCase() };
 
-  console.log("User from DB:", user);
+  const user = await User.findOne(query);
 
   if (!user) {
     res.status(401).json({ error: 'Invalid credentials' });
@@ -350,8 +345,6 @@ app.post('/api/signin', (req: Request, res: Response) => {
   }
 
   const isMatch = user.passwordHash === hashString(password);
-  console.log("Password Match:", isMatch);
-
   if (!isMatch) {
     res.status(401).json({ error: 'Invalid credentials' });
     return;
@@ -366,68 +359,70 @@ app.post('/api/signin', (req: Request, res: Response) => {
     res.status(401).json({ error: 'Your account has been deactivated by an administrator.' });
     return;
   }
-  
+
   res.json({ success: true, user: { email: user.email, username: user.username, profileImage: user.profileImage } });
 });
 
-app.put('/api/profile', (req: Request, res: Response) => {
+app.put('/api/profile', async (req: Request, res: Response) => {
   const { currentEmail, email, username, profileImage } = req.body;
-  
+
   if (!isValidUsername(username)) {
     res.status(400).json({ error: 'Username must be 3-20 characters long and can only contain letters, numbers, and underscores.' });
     return;
   }
 
-  const users = getUsers();
-  const userIndex = users.findIndex(u => u.email === currentEmail);
-  
-  if (userIndex === -1) {
+  const user = await User.findOne({ email: currentEmail });
+  if (!user) {
     res.status(404).json({ error: 'User not found.' });
     return;
   }
-  
-  if (email.toLowerCase() !== currentEmail.toLowerCase() && users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
-    res.status(400).json({ error: 'Email is already taken by another account.' });
-    return;
+
+  if (email.toLowerCase() !== currentEmail.toLowerCase()) {
+    const emailTaken = await User.findOne({ email: email.toLowerCase() });
+    if (emailTaken) {
+      res.status(400).json({ error: 'Email is already taken by another account.' });
+      return;
+    }
   }
 
-  if (users.find(u => u.email !== currentEmail && u.username.toLowerCase() === username.toLowerCase())) {
+  const usernameTaken = await User.findOne({
+    email: { $ne: currentEmail },
+    username: username.toLowerCase()
+  });
+  if (usernameTaken) {
     res.status(400).json({ error: 'Username is already taken by another account.' });
     return;
   }
 
-  users[userIndex].email = email;
-  users[userIndex].username = username;
+  user.email = email;
+  user.username = username;
   if (profileImage !== undefined) {
-    users[userIndex].profileImage = profileImage;
+    user.profileImage = profileImage;
   }
-  saveUsers(users);
-  
-  res.json({ success: true, user: { email, username, profileImage: users[userIndex].profileImage } });
+  await user.save();
+
+  res.json({ success: true, user: { email, username, profileImage: user.profileImage } });
 });
 
-app.delete('/api/profile', (req: Request, res: Response) => {
+app.delete('/api/profile', async (req: Request, res: Response) => {
   const { currentEmail } = req.body;
-  const users = getUsers();
-  const userIndex = users.findIndex(u => u.email === currentEmail);
-  
-  if (userIndex === -1) {
+  const user = await User.findOne({ email: currentEmail });
+
+  if (!user) {
     res.status(404).json({ error: 'User not found.' });
     return;
   }
-  
-  users.splice(userIndex, 1);
-  saveUsers(users);
+
+  user.status = 'deleted_by_user';
+  await user.save();
   res.json({ success: true });
 });
 
-app.post('/api/verify-status', (req: Request, res: Response) => {
+app.post('/api/verify-status', async (req: Request, res: Response) => {
   const { email } = req.body;
   if (!email) return res.json({ success: true });
-  
-  const users = getUsers();
-  const user = users.find(u => u.email === email);
-  
+
+  const user = await User.findOne({ email });
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
@@ -455,41 +450,41 @@ app.post('/api/admin/signin', (req: Request, res: Response) => {
   }
 });
 
-app.get('/api/admin/users', (req: Request, res: Response) => {
+app.get('/api/admin/users', async (req: Request, res: Response) => {
   try {
-    const users = getUsers();
+    const users = await User.find({}, { _id: 0, __v: 0 });
     res.json({ success: true, users });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
 
-app.put('/api/admin/users/:id/status', (req: Request, res: Response) => {
+app.put('/api/admin/users/:id/status', async (req: Request, res: Response) => {
   const { id } = req.params;
   const { status } = req.body;
-  const users = getUsers();
-  const userIndex = users.findIndex(u => u.id === id);
-  if (userIndex === -1) {
+
+  const user = await User.findOne({ id });
+  if (!user) {
     res.status(404).json({ error: 'User not found' });
     return;
   }
-  
-  users[userIndex].status = status;
-  saveUsers(users);
-  res.json({ success: true, user: users[userIndex] });
+
+  user.status = status;
+  await user.save();
+  res.json({ success: true, user });
 });
 
-app.delete('/api/admin/users/:id', (req: Request, res: Response) => {
+app.delete('/api/admin/users/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
-  const users = getUsers();
-  const userIndex = users.findIndex(u => u.id === id);
-  if (userIndex === -1) {
+
+  const user = await User.findOne({ id });
+  if (!user) {
     res.status(404).json({ error: 'User not found' });
     return;
   }
-  
-  users[userIndex].status = 'deleted_by_admin';
-  saveUsers(users);
+
+  user.status = 'deleted_by_admin';
+  await user.save();
   res.json({ success: true });
 });
 
