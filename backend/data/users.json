@@ -90,5 +90,21 @@
     "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
     "passwordPlain": "1234",
     "createdAt": "2026-04-28T12:49:52.185Z"
+  },
+  {
+    "id": "0055c987-5b47-497b-9636-7864df9c4c03",
+    "email": "lara@yopmail.com",
+    "username": "lara",
+    "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
+    "passwordPlain": "1234",
+    "createdAt": "2026-04-29T08:49:28.260Z"
+  },
+  {
+    "id": "7af489ba-4784-4f73-af9b-f8585e91e202",
+    "email": "local@yopmail.com",
+    "username": "local",
+    "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4",
+    "passwordPlain": "1234",
+    "createdAt": "2026-04-29T12:06:46.558Z"
   }
 ]
